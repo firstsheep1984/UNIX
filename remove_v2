@@ -1,0 +1,106 @@
+#!/bin/bash
+#
+# Script Name:  remove
+# Description: 	Safely move file to $HOME/deleted 
+# Author:  Yangyang Ma
+# History: 2019-Sep-25 Initial
+#
+# Example: bash remove filename or ./remove filename
+#
+
+#====================================
+#
+# Global Variables
+#====================================
+
+INPUT_FILE=`basename $1`
+RECYLE_DIR="$HOME/deleted"
+RESTORE_INFO="$HOME/.restore.info"
+
+
+
+#=====================================
+# Check Arguments
+# -- Only 1 argument allowed
+# -- Only filename allowed
+# -- Directory is NOT allowed
+#=====================================
+
+if [ $# -ne 1 ]
+then
+	echo -e "\nInvalid arguments!\n"
+	echo -e "\tExample: bash `basename $0` filename\n"
+	exit 1
+fi
+
+if [ -d $INPUT_FILE ]
+then
+	echo -e "\n$INPUT_FILE is directory. Invalid Arguments!\n"
+	exit 1
+fi
+
+# Self remove is not allowed
+if [ $INPUT_FILE == `basename $0` ]
+then
+	echo -e "\n\tPermission denied!\n"
+	exit 1
+
+fi 
+
+if [ ! -f $INPUT_FILE ]
+then
+	echo -e "\n$INPUT_FILE not found!\n"
+	exit 1
+fi
+
+
+#=========================================
+# Create $HOME/deleted if it doesn't exist
+#=========================================
+
+if [ ! -d $RECYLE_DIR ]
+then
+	mkdir $RECYLE_DIR
+fi
+
+
+#===============================================
+# Create $HOME/.restore.info if it doesn't exist
+#===============================================
+if [ ! -f $RESTORE_INFO ]
+then
+	touch $RESTORE_INFO
+fi	
+
+
+#====================================================
+# Move $INPUT_FILE to $HOME/deleted/$INPUT_FILE_inode
+# Log to $HOME/.restore.info
+#====================================================
+FILE_INODE=`ls -i $INPUT_FILE|cut -d" " -f1`
+NEW_FILENAME="$INPUT_FILE"_"$FILE_INODE"
+
+FILE_LOCATION=`pwd $INPUT_FILE`
+FILE_FULL_PATH="$FILE_LOCATION/$INPUT_FILE"
+
+#move file to $HOME/deleted
+mv $INPUT_FILE $RECYLE_DIR/$NEW_FILENAME
+if [ $? -eq 0 ]
+then 
+	echo -e "\nRemove $INPUT_FILE successfully!\n"
+	echo "$NEW_FILENAME:$FILE_FULL_PATH" >>$RESTORE_INFO
+	if [ $? -eq 0 ]
+	then
+		echo -e "Update $RESTORE_INFO successfully!\n"
+	else 
+		echo -e "Update $RESTORE_INFO failed!\n"
+	fi
+else
+	echo  -e "\nRemove $INPUT_FILE failed!\n"
+fi	
+
+
+
+
+
+

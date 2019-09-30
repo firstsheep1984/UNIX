@@ -1,0 +1,116 @@
+#!/bin/bash
+#
+# Script Name:  restore
+# Description: 	restore file from "$HOME/deleted"
+# Author:  Yangyang Ma
+# History: 2019-Sep-25 Initial
+#
+# Example: bash restore filename_inode or ./restore filename_inode
+#
+
+#====================================
+#
+# Global Variables
+#====================================
+
+INPUT_FILE=$1
+RECYLE_DIR="$HOME/deleted"
+RESTORE_INFO="$HOME/.restore.info"
+FILE_FULLPATH="$RECYLE_DIR/$INPUT_FILE"
+
+
+
+#=====================================
+# Check Arguments
+# -- Only 1 argument allowed
+# -- Only filename allowed
+# -- Directory is NOT allowed
+#=====================================
+
+if [ $# -ne 1 ]
+then
+	echo -e "\nInvalid arguments!\n"
+	echo -e "\tExample: bash `basename $0` filename_inode\n"
+	exit 1
+fi
+
+if [ -d $FILE_FULLPATH ]
+then
+	echo -e "\n$INPUT_FILE is directory. Invalid Arguments!\n"
+	exit 1
+fi
+
+# Self restore is not allowed
+if [ $INPUT_FILE == `basename $0` ]
+then
+	echo -e "\n\tPermission denied!\n"
+	exit 1
+
+fi 
+
+if [ ! -f $FILE_FULLPATH ]
+then
+	echo -e "\n$FILE_FULLPATH not found!\n"
+	exit 1
+fi
+
+
+
+#==========================================================
+# Restore $INPUT_FILE to $HOME/deleted to current directory
+# Remove record from $HOME/.restore.info
+#==========================================================
+#FILE_INODE=`echo $INPUT_FILE|cut -d"_" -f2`
+NEW_FILENAME=`echo $INPUT_FILE|cut -d"_" -f1`
+
+# Function: restore_file()
+restore_file(){
+
+	mv -f $FILE_FULLPATH $NEW_FILENAME
+	if [ $? -eq 0 ]
+	then
+	 	 echo -e "\nRestore $INPUT_FILE successfully!\n"
+		 grep -v $INPUT_FILE $RESTORE_INFO >/tmp/mytmp
+		 mv -f /tmp/mytmp $RESTORE_INFO 
+		 if [ $? -eq 0 ]
+		 then
+			echo -e "Update $RESTORE_INFO successfully!\n"
+		 	rm -rf /tmp/mytmp >/dev/null 2>&1
+		 else
+		 	echo -e "Update $RESTORE_INFO failed!\n"
+	       	 fi			
+	 else
+		echo -e "\nRestore $INPUT_FILE failed!\n"
+	 fi	
+
+}
+
+
+if [ -f $NEW_FILENAME ]&& [ "`ls -i $FILE_FULLPATH|cut -d" " -f1`" == "`ls -i $NEW_FILENAME|cut -d" " -f1`" ]
+then
+	#$INPUT_FILE exist in current directory
+	read -p "$NEW_FILENAME exist! Overwrite?(y/n)" choice
+	case "$choice" in
+          y|Y ) 
+		  rm -rf $NEW_FILENAME >/dev/null 2>&1
+		  restore_file;;
+
+          n|N ) echo -e "\nIgnore to restore $INPUT_FILE\n"
+		  exit 1;;
+
+          * ) echo -e "\nInvalid choice\n"
+		  exit 1;;
+        esac
+
+else
+	#$INPUT_FILE doesn't exist in current directory
+	restore_file
+
+fi
+
+
+
+
+
+
+

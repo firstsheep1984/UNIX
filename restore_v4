@@ -1,0 +1,116 @@
+#!/bin/bash
+#
+# Script Name:  restore
+# Description: 	restore file from "$HOME/deleted"
+# Author:  Yangyang Ma
+# History: 2019-Sep-25 Initial
+# 	   2019-Sep-27 v4 
+#
+# Example: bash restore filename_inode or ./restore filename_inode
+#
+
+#====================================
+#
+# Global Variables
+#====================================
+
+INPUT_FILE=$1
+RECYLE_DIR="$HOME/deleted"
+RESTORE_INFO="$HOME/.restore.info"
+
+
+
+#=====================================
+# Check Arguments
+# -- Only 1 argument allowed
+# -- Only filename allowed
+# -- Directory is NOT allowed
+#=====================================
+if [ $# -eq 0 ]
+then
+        echo -e "\nFile name not found!\n"
+        echo -e "\tExample: bash `basename $0` filename\n"
+        exit 1
+elif [ $# -gt 1 ]
+then
+        echo -e "\nOnly one file name allowed\n"
+        echo -e "\tExample: bash `basename $0` filename\n"
+        exit 1
+fi
+
+
+# Self restore is not allowed
+if [ `basename $INPUT_FILE` == `basename $0` ]
+then
+	echo -e "\nSelf-restore is not allowed!\n"
+	exit 1
+
+fi 
+
+FILE_FULLPATH=$RECYLE_DIR/`basename $INPUT_FILE`
+if [ ! -f $FILE_FULLPATH ]
+then
+	echo -e "\n$FILE_FULLPATH not found!\n"
+	exit 1
+fi
+
+
+#Check if $HOME/.restore.info contains the record of $INPUT_FILE 
+REAL_FILENAME=`basename $INPUT_FILE`
+grep -q $REAL_FILENAME $RESTORE_INFO 
+if [ $? -ne 0 ]
+then
+	echo -e "\nRestore Failed! $INPUT_FILE not found from $RESTORE_INFO!\n"
+	exit 1
+fi		
+FILE_DESTINATION=`grep $REAL_FILENAME $RESTORE_INFO|cut -d":" -f2`
+
+#==========================================================
+# Restore $INPUT_FILE to $HOME/deleted to current directory
+# Remove record from $HOME/.restore.info
+#==========================================================
+
+# Function: restore_file()
+restore_file(){	
+	mv -f $FILE_FULLPATH $FILE_DESTINATION >/dev/null 2>&1 
+	if [ $? -eq 0 ]
+	then
+	 	 echo -e "\nRestore $INPUT_FILE successfully!\n"
+		 grep -v $INPUT_FILE $RESTORE_INFO >/tmp/mytmp
+		 mv -f /tmp/mytmp $RESTORE_INFO >/dev/null 2>&1
+		 if [ $? -eq 0 ]
+		 then
+			echo -e "Update $RESTORE_INFO successfully!\n"
+		 	rm -rf /tmp/mytmp >/dev/null 2>&1
+		 else
+		 	echo -e "Update $RESTORE_INFO failed!\n"
+	       	 fi			
+	 else
+		echo -e "\nRestore $INPUT_FILE failed!\n"
+	 fi	
+
+}
+
+## Check the restore file exist in destination directory or not 
+if [ -f $FILE_DESTINATION  ] && [ "`ls -i $FILE_FULLPATH|cut -d" " -f1`" == "`ls -i $FILE_DESTINATION |cut -d" " -f1`" ]
+then
+	#$INPUT_FILE exist
+	read -p "$FILE_DESTINATION exist! Overwrite?(y/n)" choice
+	case "$choice" in
+          y|Y ) 
+		  rm -rf $FILE_DESTINATION >/dev/null 2>&1
+		  restore_file;;
+
+          n|N ) echo -e "\nIgnore to restore $INPUT_FILE\n"
+		  exit 1;;
+
+          * ) echo -e "\nInvalid choice\n"
+		  exit 1;;
+        esac
+
+else
+	#$INPUT_FILE doesn't exist in current directory
+	restore_file
+
+fi
+
